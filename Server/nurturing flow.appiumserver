@@ -1,0 +1,7 @@
+{
+  "nickname": "nurturing flow",
+  "host": "127.0.0.1",
+  "port": 4723,
+  "protocol": "http",
+  "remoteAppiumVersion": "2.x"
+}
