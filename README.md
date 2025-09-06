@@ -51,7 +51,7 @@ This project automates playing the **Word Hunt** game in iMessage using Python, 
 4. Run the bot
   ```bash
    python main.py
-
+  ```
 
 
 How It Works
