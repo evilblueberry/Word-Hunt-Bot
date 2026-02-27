@@ -103,14 +103,22 @@ export default function App() {
             <div className="flex gap-4">
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Device UDID</label>
-                <input type="text" value={config.udid || ''} onChange={e => saveConfig({ ...config, udid: e.target.value })} className="bg-gray-900 border border-gray-700 rounded px-3 py-2 w-64 text-sm font-mono placeholder-gray-500" placeholder="e.g. 00008120-000C..." />
+                <input type="text" value={config.udid || ''} onChange={e => saveConfig({ ...config, udid: e.target.value })} className="bg-gray-900 border border-gray-700 rounded px-3 py-2 w-72 text-sm font-mono placeholder-gray-500" placeholder="e.g. 00008120-000C..." />
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">Find your UDID in Finder or Xcode.</p>
+            <div className="mt-4 p-3 bg-gray-900 rounded border border-gray-700 text-sm text-gray-400">
+              <strong className="text-gray-300">How to find your UDID:</strong>
+              <ol className="list-decimal list-inside mt-2 space-y-1">
+                <li>Open <strong>Finder</strong> and click your iPhone under "Locations" in the sidebar.</li>
+                <li>Click on the text right below your device's name (where it shows battery / storage).</li>
+                <li>Click it a few times until it reveals the <strong>UDID</strong>. Right-click and copy it.</li>
+              </ol>
+            </div>
           </div>
 
-          <div className="flex justify-end">
-            <button onClick={() => setStep(3)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-md">Next Step</button>
+          <div className="flex justify-between items-center">
+            <button onClick={() => setStep(1)} className="text-gray-400 hover:text-white px-4 py-2">Back</button>
+            <button onClick={() => setStep(3)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-md transition">Next Step</button>
           </div>
         </div>
       </div>
@@ -124,28 +132,49 @@ export default function App() {
           <h2 className="text-2xl font-bold mb-6">Step 2: Apple Developer Team ID</h2>
 
           <div className="bg-gray-800 rounded-lg p-6 mb-6">
-            <p className="text-gray-400 mb-4 border-l-4 border-blue-500 pl-3">
-              Appium needs your Team ID to compile the WebDriverAgent runner and deploy it to your device.
-              You can find your Team ID in your Apple Developer account or in Keychain.
+            <h3 className="text-lg font-medium mb-3">WebDriverAgent (WDA) & Xcode</h3>
+            <p className="text-gray-400 mb-4 text-sm">
+              To automate an iPhone, Appium creates a temporary test app called "WebDriverAgent" and installs it to your phone. To do this, you <strong>MUST have Xcode installed</strong> on your Mac (download it from the App Store).
             </p>
 
-            <div>
+            <h3 className="text-md font-medium text-blue-400 mt-4 mb-2">How to get your Apple Team ID:</h3>
+            <ol className="list-decimal list-inside text-gray-400 text-sm space-y-2 mb-4 bg-gray-900 border border-gray-700 p-3 rounded">
+              <li>Go to <a href="https://developer.apple.com/account" className="text-blue-500 underline" target="_blank" rel="noreferrer">developer.apple.com/account</a> and sign in with your Apple ID. (Enroll in the free developer program if prompted).</li>
+              <li>Scroll down to the <strong>Membership details</strong> section.</li>
+              <li>Copy the 10-character alphanumeric string labeled <strong>Team ID</strong>.</li>
+              <li>Open <strong>Xcode</strong> on your Mac, go to <code>Xcode → Settings → Accounts</code>, click the <code>+</code> button, and sign in with your Apple ID here as well.</li>
+            </ol>
+
+            <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-1">Apple Team ID</label>
               <input type="text" value={config.teamId || ''} onChange={e => saveConfig({ ...config, teamId: e.target.value })} className="bg-gray-900 border border-gray-700 rounded px-3 py-2 w-48 text-sm font-mono placeholder-gray-500" placeholder="e.g. AB12345678" />
+            </div>
+
+            <div className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded text-sm text-yellow-200/80">
+              <strong>First-Time Run Note:</strong> When you start the bot for the FIRST time, it will take ~3 minutes to compile WDA. It will fail with an error if your device doesn't trust the certificate. You must go to <strong>Settings → General → VPN & Device Management</strong> on your iPhone and click "Trust" on your developer email.
             </div>
           </div>
 
           <div className="bg-gray-800 rounded-lg p-6 mb-6">
             <h3 className="text-lg font-medium mb-3 flex items-center">
-              <Package className="mr-2" size={20} /> Install Dependencies
+              <Package className="mr-2" size={20} /> Install & Verify Dependencies
             </h3>
             <div className="text-sm text-gray-400 mb-4 space-y-1">
               <p>Python 3: {envStatus?.python ? <span className="text-green-500">Found</span> : <span className="text-yellow-500">Not Verified</span>}</p>
               <p>Appium: {envStatus?.appium ? <span className="text-green-500">Found</span> : <span className="text-yellow-500">Not Verified</span>}</p>
               <p>Venv: {envStatus?.venv ? <span className="text-green-500">Found</span> : <span className="text-yellow-500">Not Verified</span>}</p>
             </div>
-            <button disabled={installing} onClick={handleInstallDeps} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-4 py-2 rounded-md transition">
-              {installing ? 'Installing...' : 'Install Python Requirements'}
+
+            {!envStatus?.appium && (
+              <div className="mb-4 p-3 bg-red-900/30 border border-red-700/50 rounded text-xs text-red-200">
+                <strong>Manual Appium Installation:</strong> If Appium doesn't show as 'Found' after clicking Install, open a terminal on your Mac and run these exactly:<br />
+                <code className="block mt-2 mb-1 bg-black/50 p-1.5 rounded text-gray-300">npm install -g appium</code>
+                <code className="block bg-black/50 p-1.5 rounded text-gray-300">appium driver install xcuitest</code>
+              </div>
+            )}
+
+            <button disabled={installing} onClick={handleInstallDeps} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 block text-white px-4 py-2 rounded-md transition">
+              {installing ? 'Installing (may take minutes)...' : 'Install Dependencies (Python, Appium, XCUITest)'}
             </button>
           </div>
 
@@ -189,6 +218,10 @@ export default function App() {
 
         <button onClick={toggleBot} disabled={!appiumRunning && !botRunning} className={`w-full py-3 rounded-md font-medium shadow-sm transition flex justify-center items-center gap-2 ${appiumRunning ? (botRunning ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-blue-600 hover:bg-blue-500 text-white') : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}>
           {botRunning ? <><Square size={18} fill="currentColor" /> Stop Bot</> : <><Play size={18} fill="currentColor" /> Start Bot</>}
+        </button>
+
+        <button onClick={() => setStep(3)} className="w-full mt-4 py-2 text-sm text-gray-400 hover:text-white transition">
+          ← Back to Setup
         </button>
       </div>
 

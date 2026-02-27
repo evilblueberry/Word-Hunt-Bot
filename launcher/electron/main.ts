@@ -3,13 +3,18 @@ import * as path from 'path';
 import { spawn, exec } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
+import { fileURLToPath } from 'url';
+
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
 let appiumProcess: any = null;
 let botProcess: any = null;
 let wdaProcess: any = null;
 
-const rootDir = path.join(__dirname, '../../..'); 
+const rootDir = path.join(__dirname, '../../..');
 const venvPath = path.join(rootDir, 'venv');
 const pythonExec = os.platform() === 'win32' ? path.join(venvPath, 'Scripts', 'python.exe') : path.join(venvPath, 'bin', 'python');
 
@@ -68,16 +73,21 @@ ipcMain.handle('save-config', async (_, newConfig) => {
 });
 
 // Environment setup checks
+const getAppEnv = () => ({
+  ...process.env,
+  PATH: `${process.env.PATH || ''}:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/Users/${os.userInfo().username}/.npm-global/bin`
+});
+
 ipcMain.handle('check-env', async () => {
   const result = { python: false, node: false, venv: false, appium: false };
   try {
-     result.node = true; // Electron implies node.
-     const pVer = await new Promise((res) => exec('python3 --version', (err) => res(!err)));
-     result.python = pVer as boolean;
-     result.venv = fs.existsSync(pythonExec);
-     const appiumCheck = await new Promise((res) => exec('appium -v', (err) => res(!err)));
-     result.appium = appiumCheck as boolean;
-  } catch(e) {}
+    result.node = true; // Electron implies node.
+    const pVer = await new Promise((res) => exec('python3 --version', { env: getAppEnv() }, (err) => res(!err)));
+    result.python = pVer as boolean;
+    result.venv = fs.existsSync(pythonExec);
+    const appiumCheck = await new Promise((res) => exec('appium -v', { env: getAppEnv() }, (err) => res(!err)));
+    result.appium = appiumCheck as boolean;
+  } catch (e) { }
   return result;
 });
 
@@ -87,17 +97,18 @@ ipcMain.handle('install-deps', async (event) => {
     event.sender.send('log', 'Starting dependency installation...\n');
     const cmds = [];
     if (!fs.existsSync(pythonExec)) {
-        cmds.push(`python3 -m venv "${venvPath}"`);
+      cmds.push(`python3 -m venv "${venvPath}"`);
     }
     const pipCmd = os.platform() === 'win32' ? `"${venvPath}\\Scripts\\pip"` : `"${venvPath}/bin/pip"`;
     cmds.push(`${pipCmd} install -r "${path.join(rootDir, 'requirements.txt')}"`);
-    
-    // We assume Appium global install needs to be done manually or via npm wrapper
-    // cmds.push('npm install -g appium'); 
-    
+
+    // Install Appium globally and ensure the XCUITest driver is installed
+    cmds.push('npm install -g appium');
+    cmds.push('appium driver install xcuitest || true');
+
     const cmdStr = cmds.join(' && ');
     event.sender.send('log', `Running: ${cmdStr}\n`);
-    const proc = exec(cmdStr, { cwd: rootDir });
+    const proc = exec(cmdStr, { cwd: rootDir, env: getAppEnv() });
     proc.stdout?.on('data', d => event.sender.send('log', d));
     proc.stderr?.on('data', d => event.sender.send('log', d));
     proc.on('close', code => {
@@ -111,12 +122,12 @@ ipcMain.handle('start-appium', async (event) => {
   if (appiumProcess) return true;
   return new Promise((resolve) => {
     event.sender.send('log', 'Starting Appium...\n');
-    appiumProcess = spawn('appium', [], { cwd: rootDir, shell: true });
+    appiumProcess = spawn('appium', [], { cwd: rootDir, shell: true, env: getAppEnv() });
     appiumProcess.stdout?.on('data', (d: any) => {
-        event.sender.send('log', d.toString());
-        if (d.toString().includes('Appium REST http interface listener started')) {
-            resolve(true); // Appium is ready
-        }
+      event.sender.send('log', d.toString());
+      if (d.toString().includes('Appium REST http interface listener started')) {
+        resolve(true); // Appium is ready
+      }
     });
     appiumProcess.stderr?.on('data', (d: any) => event.sender.send('log', d.toString()));
     appiumProcess.on('close', () => { appiumProcess = null; });
@@ -124,11 +135,11 @@ ipcMain.handle('start-appium', async (event) => {
 });
 
 ipcMain.handle('stop-appium', async () => {
-    if (appiumProcess) {
-        appiumProcess.kill();
-        appiumProcess = null;
-    }
-    return true;
+  if (appiumProcess) {
+    appiumProcess.kill();
+    appiumProcess = null;
+  }
+  return true;
 });
 
 ipcMain.handle('start-bot', async (event) => {
@@ -138,27 +149,29 @@ ipcMain.handle('start-bot', async (event) => {
     const scriptPath = path.join(rootDir, 'Scripts', 'main.py');
     // We will supply config via env variables
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8') || "{}");
-    const env = { ...process.env, 
-        BOT_UDID: config.udid, 
-        BOT_TEAM_ID: config.teamId,
-        BOT_BUNDLE_ID: config.bundleId 
+    const env = {
+      ...process.env,
+      ...getAppEnv(),
+      BOT_UDID: config.udid,
+      BOT_TEAM_ID: config.teamId,
+      BOT_BUNDLE_ID: config.bundleId
     };
-    
+
     botProcess = spawn(pythonExec, [scriptPath], { cwd: rootDir, env });
     botProcess.stdout?.on('data', (d: any) => event.sender.send('log', d.toString()));
     botProcess.stderr?.on('data', (d: any) => event.sender.send('log', d.toString()));
-    botProcess.on('close', (code: any) => { 
-        event.sender.send('log', `Bot exited with code ${code}\n`);
-        botProcess = null; 
-        resolve(true);
+    botProcess.on('close', (code: any) => {
+      event.sender.send('log', `Bot exited with code ${code}\n`);
+      botProcess = null;
+      resolve(true);
     });
   });
 });
 
 ipcMain.handle('stop-bot', async () => {
-    if (botProcess) {
-        botProcess.kill();
-        botProcess = null;
-    }
-    return true;
+  if (botProcess) {
+    botProcess.kill();
+    botProcess = null;
+  }
+  return true;
 });
