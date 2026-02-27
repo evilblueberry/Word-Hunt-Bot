@@ -1,7 +1,9 @@
 {
   "name": "launcher",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0-beta.1",
+  "author": "evilblueberry",
+  "repository": "https://github.com/evilblueberry/Word-Hunt-Bot",
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
@@ -44,6 +46,13 @@
   "build": {
     "appId": "com.malcolm.wordhuntbot",
     "productName": "Word Hunt Bot",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "evilblueberry",
+        "repo": "Word-Hunt-Bot"
+      }
+    ],
     "directories": {
       "output": "release/${version}"
     },
