@@ -1,0 +1,8 @@
+
+# Build / release artifacts (do not commit)
+launcher/release/
+launcher/dist/
+launcher/out/
+*.dmg
+*.exe
+*.app
