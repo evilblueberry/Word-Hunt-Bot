@@ -14,19 +14,31 @@ from modules import swipe_word
 from modules import get_cell_size
 import time
 import numpy as np
+import os
+
+UDID = os.environ.get("BOT_UDID", "00008120-000C65C00CA2201E")
+BUNDLE_ID = os.environ.get("BOT_BUNDLE_ID", "com.apple.MobileSMS")
+TEAM_ID = os.environ.get("BOT_TEAM_ID", "")
+PORT = os.environ.get("BOT_PORT", "4723")
+
+caps = {
+    "platformName": "iOS",
+    "platformVersion": os.environ.get("BOT_PLATFORM_VERSION", "18.3"),
+    "deviceName": "iPhone",
+    "udid": UDID,
+    "automationName": "XCUITest",
+    "bundleId": BUNDLE_ID,
+    "noReset": True
+}
+
+if TEAM_ID:
+    caps["xcodeOrgId"] = TEAM_ID
+    caps["xcodeSigningId"] = "iPhone Developer"
 
 options = XCUITestOptions()
-options.load_capabilities({
-    "platformName": "iOS",
-    "platformVersion": "18.3",
-    "deviceName": "iPhone",
-    "udid": "00008120-000C65C00CA2201E",
-    "automationName": "XCUITest",
-    "bundleId": "com.apple.MobileSMS",
-    "noReset": True
-})
+options.load_capabilities(caps)
 
-driver = webdriver.Remote("http://127.0.0.1:4723", options=options)
+driver = webdriver.Remote(f"http://127.0.0.1:{PORT}", options=options)
 time.sleep(5)
 
 # locate and click the play button
@@ -44,8 +56,10 @@ time.sleep(2)
 
 
 # call image_recognition function to hit the start button
-image_directory = "images/"
-start_button_image_path = image_directory + "start_button_image.png"
+# Ensure we are checking the relative path correctly based on the workspace
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+image_directory = os.path.join(base_dir, "images") + "/"
+start_button_image_path = os.path.join(image_directory, "start_button_image.png")
 
 screen_width = driver.get_window_size()['width']
 screen_height = driver.get_window_size()['height']
@@ -74,9 +88,9 @@ time.sleep(1)
 
 
 # take a screenshot of the game board
-game_board = driver.get_screenshot_as_file("game_board.png")
+game_board_path = os.path.join(base_dir, "game_board.png")
+game_board = driver.get_screenshot_as_file(game_board_path)
 if game_board:
-    game_board_path = "game_board.png"
     print("Screenshot saved successfully!")
 else:
     print("Failed to take screenshot.")
