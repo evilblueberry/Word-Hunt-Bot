@@ -20,7 +20,7 @@ This project automates playing the **Word Hunt** game in iMessage using Python, 
 - **Selenium (ActionBuilder)** for touch gestures
 - **OpenCV** for image recognition
 - **Pillow (PIL)** for image processing
-- **Tesseract OCR** (optional, for extracting letters from screenshots)
+- **Tesseract OCR** (legacy optional; the current launcher path uses EasyOCR directly)
 
 ---
 
@@ -38,20 +38,41 @@ This project automates playing the **Word Hunt** game in iMessage using Python, 
 
 ## Setup & Installation
 
-1. **Install dependencies**
+### Launcher flow
+
+The launcher now installs an isolated runtime instead of depending on global Appium setup:
+
+1. Open the launcher.
+2. Go to the **Dependencies** view.
+3. Click **Install dependencies**.
+4. Enter your **UDID**, **Apple Team ID**, and **updated WDA bundle ID**.
+5. Run the built-in **WDA test**.
+6. Move to **Run Bot** and click **Run bot**.
+
+### Manual CLI flow
+
+1. Install Python dependencies:
    ```bash
-   pip install opencv-python pillow selenium appium-python-client
-2. Start appium
+   python3 -m venv venv
+   ./venv/bin/python -m pip install --upgrade pip setuptools wheel
+   ./venv/bin/python -m pip install -r requirements.txt
+   ```
+2. Install Appium and the XCUITest driver locally:
    ```bash
-   appium
-3. Connect your iPhone
-- Enable developer mode.
-- Connect via USB or Wi-Fi.
-- Ensure WebDriverAgent is installed and running.
-4. Run the bot
-  ```bash
-   python main.py
-  ```
+   mkdir -p .runtime/appium
+   cd .runtime/appium
+   npm init -y
+   npm install --save-exact appium appium-xcuitest-driver
+   npx appium server --use-drivers=xcuitest
+   ```
+3. Connect your iPhone:
+   - Enable Developer Mode.
+   - Connect via USB or Wi-Fi.
+   - Make sure Xcode can see the device.
+4. Run the bot:
+   ```bash
+   BOT_UDID=<your-udid> ./venv/bin/python Scripts/main.py
+   ```
 
 
 How It Works
@@ -69,7 +90,6 @@ How It Works
 4. Overlay Handling
 - Detects UI overlays (such as the "Start" button) by template matching.
 - Taps at the correct scaled coordinates to dismiss them before gameplay.
-
 
 
 

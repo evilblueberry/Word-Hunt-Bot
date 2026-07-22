@@ -1,254 +1,555 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './App.css';
-import { Play, Square, Terminal, Phone, Package, Search } from 'lucide-react';
+
+type View = 'home' | 'dependencies' | 'run';
+
+type LogEntry = {
+  id: number;
+  message: string;
+  timestamp: string;
+};
+
+type Config = {
+  bundleId: string;
+  host: string;
+  port: number;
+  teamId: string;
+  udid: string;
+  xcodeSigningId: string;
+  updatedWDABundleId: string;
+};
+
+type EnvironmentStatus = {
+  python: boolean;
+  node: boolean;
+  venv: boolean;
+  appium: boolean;
+  xcuitest: boolean;
+  tesseract: boolean;
+};
+
+type PreflightResults = {
+  xcodeAppExists: boolean;
+  xcodeSelectValid: boolean;
+  xcodebuildValid: boolean;
+  deviceVisible: boolean;
+  xcuitestInstalled: boolean;
+  hasDeveloperCert: boolean;
+  tesseractInstalled: boolean;
+};
+
+type WdaTestResult =
+  | 'idle'
+  | 'testing'
+  | 'success'
+  | 'devmode'
+  | 'untrusted'
+  | 'xcode'
+  | 'signing'
+  | 'port'
+  | 'unknown';
+
+type ElectronApi = {
+  getConfig: () => Promise<Config>;
+  saveConfig: (config: Config) => Promise<boolean>;
+  getOsUsername: () => Promise<string>;
+  checkEnv: () => Promise<EnvironmentStatus>;
+  installDeps: () => Promise<boolean>;
+  startAppium: () => Promise<boolean>;
+  stopAppium: () => Promise<boolean>;
+  startBot: () => Promise<boolean>;
+  stopBot: () => Promise<boolean>;
+  runPreflights: (udid: string) => Promise<PreflightResults>;
+  testWda: () => Promise<boolean>;
+  onLog: (callback: (log: string) => void) => (() => void) | void;
+};
+
+declare global {
+  interface Window {
+    electronAPI: ElectronApi;
+  }
+}
+
+const defaultConfig: Config = {
+  bundleId: 'com.apple.MobileSMS',
+  host: '127.0.0.1',
+  port: 4723,
+  teamId: '',
+  udid: '',
+  xcodeSigningId: 'Apple Development',
+  updatedWDABundleId: '',
+};
 
 export default function App() {
-  const [logs, setLogs] = useState<string[]>([]);
-  const [envStatus, setEnvStatus] = useState<any>(null);
-  const [config, setConfig] = useState<any>({});
-  const [step, setStep] = useState(1);
+  const [view, setView] = useState<View>('home');
+  const [config, setConfig] = useState<Config>(defaultConfig);
+  const [envStatus, setEnvStatus] = useState<EnvironmentStatus | null>(null);
+  const [preflightResults, setPreflightResults] = useState<PreflightResults | null>(null);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [installing, setInstalling] = useState(false);
+  const [testingWda, setTestingWda] = useState(false);
+  const [wdaTestResult, setWdaTestResult] = useState<WdaTestResult>('idle');
   const [appiumRunning, setAppiumRunning] = useState(false);
   const [botRunning, setBotRunning] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const logsRef = useRef<LogEntry[]>([]);
+
+  function addLog(message: string) {
+    const cleanMessage = message.trim();
+    if (!cleanMessage) return;
+
+    setLogs((previous) => {
+      const next = [
+        ...previous,
+        {
+          id: previous.length + 1,
+          message: cleanMessage,
+          timestamp: new Date().toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          }),
+        },
+      ];
+      logsRef.current = next;
+      return next;
+    });
+
+    const normalized = cleanMessage.toLowerCase();
+    if (normalized.includes('listener started on') || normalized.includes('appium rest http interface listener started')) {
+      setAppiumRunning(true);
+    }
+    if (normalized.includes('bot exited with code')) {
+      setBotRunning(false);
+    }
+  }
+
+  async function refreshEnvironment() {
+    const status = await window.electronAPI.checkEnv();
+    setEnvStatus(status);
+  }
 
   useEffect(() => {
-    (window as any).electronAPI.getConfig().then(setConfig);
-    checkEnvironment();
+    let mounted = true;
 
-    (window as any).electronAPI.onLog((log: string) => {
-      setLogs((prev) => [...prev, log.trim()].filter(Boolean));
-    });
+    const load = async () => {
+      const savedConfig = await window.electronAPI.getConfig();
+      if (!savedConfig.updatedWDABundleId) {
+        const username = await window.electronAPI.getOsUsername();
+        savedConfig.updatedWDABundleId = `com.${username.toLowerCase().replace(/[^a-z0-9]/g, '')}.wordhuntbot.wda`;
+        await window.electronAPI.saveConfig(savedConfig);
+      }
+
+      if (!mounted) return;
+      setConfig(savedConfig);
+      await refreshEnvironment();
+    };
+
+    void load();
+
+    const unsubscribe = window.electronAPI.onLog((message) => addLog(message));
+
+    return () => {
+      mounted = false;
+      unsubscribe?.();
+    };
   }, []);
 
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [logs]);
 
-  const checkEnvironment = async () => {
-    const status = await (window as any).electronAPI.checkEnv();
-    setEnvStatus(status);
+  const updateConfig = async (patch: Partial<Config>) => {
+    const nextConfig = { ...config, ...patch };
+    setConfig(nextConfig);
+    await window.electronAPI.saveConfig(nextConfig);
   };
 
-  const handleInstallDeps = async () => {
+  const handleInstallDependencies = async () => {
     setInstalling(true);
-    const success = await (window as any).electronAPI.installDeps();
+    addLog('Installing dependencies into the isolated launcher runtime.');
+    const success = await window.electronAPI.installDeps();
     setInstalling(false);
-    checkEnvironment();
-    if (success) setStep(4);
-  };
-
-  const saveConfig = async (newConfig: any) => {
-    setConfig(newConfig);
-    await (window as any).electronAPI.saveConfig(newConfig);
-  };
-
-  const toggleAppium = async () => {
-    if (appiumRunning) {
-      await (window as any).electronAPI.stopAppium();
-      setAppiumRunning(false);
-    } else {
-      const started = await (window as any).electronAPI.startAppium();
-      if (started) setAppiumRunning(true);
+    await refreshEnvironment();
+    if (success) {
+      setView('run');
     }
   };
 
-  const toggleBot = async () => {
+  const handleTestWda = async () => {
+    setTestingWda(true);
+    setWdaTestResult('testing');
+    setPreflightResults(null);
+
+    const preflights = await window.electronAPI.runPreflights(config.udid);
+    setPreflightResults(preflights);
+
+    if (
+      !preflights.xcodeAppExists ||
+      !preflights.xcodeSelectValid ||
+      !preflights.xcodebuildValid ||
+      !preflights.deviceVisible ||
+      !preflights.xcuitestInstalled
+    ) {
+      setWdaTestResult('idle');
+      setTestingWda(false);
+      return;
+    }
+
+    if (!appiumRunning) {
+      const started = await window.electronAPI.startAppium();
+      setAppiumRunning(started);
+      if (!started) {
+        setTestingWda(false);
+        setWdaTestResult('port');
+        return;
+      }
+    }
+
+    const success = await window.electronAPI.testWda();
+    setTestingWda(false);
+
+    if (success) {
+      setWdaTestResult('success');
+      return;
+    }
+
+    const fullLog = logsRef.current.map((entry) => entry.message).join(' ').toLowerCase();
+    if (fullLog.includes('developer mode')) setWdaTestResult('devmode');
+    else if (fullLog.includes('untrusted') || fullLog.includes('trust') || fullLog.includes('permission denied')) setWdaTestResult('untrusted');
+    else if (fullLog.includes('xcode') || fullLog.includes('xcodebuild') || fullLog.includes('license')) setWdaTestResult('xcode');
+    else if (fullLog.includes('requires a provision profile') || fullLog.includes('signing') || fullLog.includes('provisioning') || fullLog.includes('certificate') || fullLog.includes('profile')) setWdaTestResult('signing');
+    else if (fullLog.includes('eaddrinuse') || fullLog.includes('port')) setWdaTestResult('port');
+    else setWdaTestResult('unknown');
+  };
+
+  const handleRunBot = async () => {
     if (botRunning) {
-      await (window as any).electronAPI.stopBot();
+      await window.electronAPI.stopBot();
       setBotRunning(false);
-    } else {
-      setBotRunning(true); // Optimistic UI
-      await (window as any).electronAPI.startBot();
-      setBotRunning(false); // When it exits
+      return;
+    }
+
+    if (!appiumRunning) {
+      const started = await window.electronAPI.startAppium();
+      setAppiumRunning(started);
+      if (!started) return;
+    }
+
+    setBotRunning(true);
+    const startedBot = await window.electronAPI.startBot();
+    if (!startedBot) {
+      setBotRunning(false);
     }
   };
 
-  if (step === 1) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-8">
-        <h1 className="text-4xl font-bold mb-4 font-sans tracking-tight">Word Hunt Bot</h1>
-        <p className="text-lg text-gray-400 mb-8 max-w-xl text-center">
-          This app controls Word Hunt on your iPhone using Appium + WebDriverAgent.
-        </p>
-        <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 max-w-2xl mb-8 flex text-sm text-red-200">
-          <Terminal className="mr-3 shrink-0" />
-          <p>
-            iOS requires Developer Mode, trusting the computer, and a valid Apple Team ID to sign WebDriverAgent. This app cannot bypass Apple’s security requirements.
+  const handleStopAppium = async () => {
+    await window.electronAPI.stopAppium();
+    setAppiumRunning(false);
+  };
+
+  const readinessItems = [
+    { label: 'Python runtime', ready: Boolean(envStatus?.python && envStatus?.venv) },
+    { label: 'Appium runtime', ready: Boolean(envStatus?.appium && envStatus?.xcuitest) },
+    { label: 'Apple signing', ready: Boolean(preflightResults?.hasDeveloperCert) },
+    { label: 'Device visibility', ready: Boolean(preflightResults?.deviceVisible) },
+  ];
+
+  const readyCount = readinessItems.filter((item) => item.ready).length;
+
+  return (
+    <div className="app-shell">
+      <aside className="rail">
+        <div>
+          <div className="wordmark">Word Hunt Bot</div>
+          <p className="rail-copy">
+            A stripped-back launcher for a once-finicky iPhone automation stack.
           </p>
         </div>
-        <button onClick={() => setStep(2)} className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-8 py-3 rounded-md transition duration-200">
-          Start Setup Wizard
-        </button>
-      </div>
-    );
-  }
 
-  if (step === 2) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white flex flex-col p-8">
-        <div className="max-w-3xl mx-auto w-full">
-          <h2 className="text-2xl font-bold mb-6">Step 1: Connect Device & Trust</h2>
+        <nav className="rail-nav" aria-label="Primary">
+          <button className={navClass(view === 'home')} onClick={() => setView('home')}>Home</button>
+          <button className={navClass(view === 'dependencies')} onClick={() => setView('dependencies')}>Dependencies</button>
+          <button className={navClass(view === 'run')} onClick={() => setView('run')}>Run Bot</button>
+        </nav>
 
-          <div className="bg-gray-800 rounded-lg p-6 mb-6">
-            <h3 className="text-lg font-medium mb-3 flex items-center">
-              <Phone className="mr-2" size={20} /> Connect iPhone via USB
-            </h3>
-            <ul className="list-disc list-inside text-gray-400 mb-4 space-y-2">
-              <li>Plug your iPhone into your Mac.</li>
-              <li>Tap "Trust This Computer" on the iPhone screen if prompted.</li>
-              <li>Go to Settings → Privacy & Security → Developer Mode, and turn it ON.</li>
-            </ul>
+        <div className="rail-status">
+          <span>Readiness</span>
+          <strong>{readyCount}/4</strong>
+        </div>
+      </aside>
 
-            <div className="flex gap-4">
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Device UDID</label>
-                <input type="text" value={config.udid || ''} onChange={e => saveConfig({ ...config, udid: e.target.value })} className="bg-gray-900 border border-gray-700 rounded px-3 py-2 w-72 text-sm font-mono placeholder-gray-500" placeholder="e.g. 00008120-000C..." />
+      <main className="stage">
+        <section className="view-frame">
+          {view === 'home' && (
+            <div className="view view-home">
+              <div className="hero-copy">
+                <p className="eyebrow">iPhone automation, simplified</p>
+                <h1>One launcher. Three screens. No buried setup maze.</h1>
+                <p className="lede">
+                  The bot logic stays intact, but the runtime now installs into an isolated local environment,
+                  Appium uses a modern project-local XCUITest setup, and the UI only asks you to do three things:
+                  understand the constraints, install what is needed, and run the bot.
+                </p>
               </div>
-            </div>
-            <div className="mt-4 p-3 bg-gray-900 rounded border border-gray-700 text-sm text-gray-400">
-              <strong className="text-gray-300">How to find your UDID:</strong>
-              <ol className="list-decimal list-inside mt-2 space-y-1">
-                <li>Open <strong>Finder</strong> and click your iPhone under "Locations" in the sidebar.</li>
-                <li>Click on the text right below your device's name (where it shows battery / storage).</li>
-                <li>Click it a few times until it reveals the <strong>UDID</strong>. Right-click and copy it.</li>
-              </ol>
-            </div>
-          </div>
 
-          <div className="flex justify-between items-center">
-            <button onClick={() => setStep(1)} className="text-gray-400 hover:text-white px-4 py-2">Back</button>
-            <button onClick={() => setStep(3)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-md transition">Next Step</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === 3) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white flex flex-col p-8">
-        <div className="max-w-3xl mx-auto w-full">
-          <h2 className="text-2xl font-bold mb-6">Step 2: Apple Developer Team ID</h2>
-
-          <div className="bg-gray-800 rounded-lg p-6 mb-6">
-            <h3 className="text-lg font-medium mb-3">WebDriverAgent (WDA) & Xcode</h3>
-            <p className="text-gray-400 mb-4 text-sm">
-              To automate an iPhone, Appium creates a temporary test app called "WebDriverAgent" and installs it to your phone. To do this, you <strong>MUST have Xcode installed</strong> on your Mac (download it from the App Store).
-            </p>
-
-            <h3 className="text-md font-medium text-blue-400 mt-4 mb-2">How to get your Apple Team ID:</h3>
-            <ol className="list-decimal list-inside text-gray-400 text-sm space-y-2 mb-4 bg-gray-900 border border-gray-700 p-3 rounded">
-              <li>Go to <a href="https://developer.apple.com/account" className="text-blue-500 underline" target="_blank" rel="noreferrer">developer.apple.com/account</a> and sign in with your Apple ID. (Enroll in the free developer program if prompted).</li>
-              <li>Scroll down to the <strong>Membership details</strong> section.</li>
-              <li>Copy the 10-character alphanumeric string labeled <strong>Team ID</strong>.</li>
-              <li>Open <strong>Xcode</strong> on your Mac, go to <code>Xcode → Settings → Accounts</code>, click the <code>+</code> button, and sign in with your Apple ID here as well.</li>
-            </ol>
-
-            <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-1">Apple Team ID</label>
-              <input type="text" value={config.teamId || ''} onChange={e => saveConfig({ ...config, teamId: e.target.value })} className="bg-gray-900 border border-gray-700 rounded px-3 py-2 w-48 text-sm font-mono placeholder-gray-500" placeholder="e.g. AB12345678" />
-            </div>
-
-            <div className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded text-sm text-yellow-200/80">
-              <strong>First-Time Run Note:</strong> When you start the bot for the FIRST time, it will take ~3 minutes to compile WDA. It will fail with an error if your device doesn't trust the certificate. You must go to <strong>Settings → General → VPN & Device Management</strong> on your iPhone and click "Trust" on your developer email.
-            </div>
-          </div>
-
-          <div className="bg-gray-800 rounded-lg p-6 mb-6">
-            <h3 className="text-lg font-medium mb-3 flex items-center">
-              <Package className="mr-2" size={20} /> Install & Verify Dependencies
-            </h3>
-            <div className="text-sm text-gray-400 mb-4 space-y-1">
-              <p>Python 3: {envStatus?.python ? <span className="text-green-500">Found</span> : <span className="text-yellow-500">Not Verified</span>}</p>
-              <p>Appium: {envStatus?.appium ? <span className="text-green-500">Found</span> : <span className="text-yellow-500">Not Verified</span>}</p>
-              <p>Venv: {envStatus?.venv ? <span className="text-green-500">Found</span> : <span className="text-yellow-500">Not Verified</span>}</p>
-            </div>
-
-            {!envStatus?.appium && (
-              <div className="mb-4 p-3 bg-red-900/30 border border-red-700/50 rounded text-xs text-red-200">
-                <strong>Manual Appium Installation:</strong> If Appium doesn't show as 'Found' after clicking Install, open a terminal on your Mac and run these exactly:<br />
-                <code className="block mt-2 mb-1 bg-black/50 p-1.5 rounded text-gray-300">npm install -g appium</code>
-                <code className="block bg-black/50 p-1.5 rounded text-gray-300">appium driver install xcuitest</code>
+              <div className="feature-strip">
+                <article className="feature">
+                  <span className="feature-index">01</span>
+                  <h2>Home</h2>
+                  <p>What the launcher does, what Apple still requires, and where to go next.</p>
+                </article>
+                <article className="feature">
+                  <span className="feature-index">02</span>
+                  <h2>Dependencies</h2>
+                  <p>Install Python + Appium runtime, enter your device info, then verify WDA can build.</p>
+                </article>
+                <article className="feature">
+                  <span className="feature-index">03</span>
+                  <h2>Run Bot</h2>
+                  <p>Launch Appium if needed, run the bot, and watch the live console in one place.</p>
+                </article>
               </div>
-            )}
 
-            <button disabled={installing} onClick={handleInstallDeps} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 block text-white px-4 py-2 rounded-md transition">
-              {installing ? 'Installing (may take minutes)...' : 'Install Dependencies (Python, Appium, XCUITest)'}
-            </button>
-          </div>
-
-          <div className="flex justify-between items-center">
-            <button onClick={() => setStep(2)} className="text-gray-400 hover:text-white px-4 py-2">Back</button>
-            <button onClick={() => setStep(4)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-md">Complete Setup</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Dashboard
-  return (
-    <div className="min-h-screen bg-gray-900 text-white flex h-screen overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-64 bg-gray-800 border-r border-gray-700 p-4 flex flex-col">
-        <h2 className="text-xl font-bold mb-8 tracking-tight items-center flex gap-2">
-          <Search size={22} className="text-blue-400" /> Word Hunt Bot
-        </h2>
-
-        <div className="space-y-4 mb-auto">
-          <div className="bg-gray-900/50 p-3 rounded border border-gray-700">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-sm text-gray-400 font-medium">Appium</span>
-              <span className={`w-2 h-2 rounded-full ${appiumRunning ? 'bg-green-500' : 'bg-red-500'}`}></span>
-            </div>
-            <button onClick={toggleAppium} className="w-full mt-2 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-xs transition">
-              {appiumRunning ? 'Stop Server' : 'Start Server'}
-            </button>
-          </div>
-
-          <div className="bg-gray-900/50 p-3 rounded border border-gray-700">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-sm text-gray-400 font-medium">Device</span>
-              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-            </div>
-            <div className="text-xs text-mono text-gray-500 truncate">{config.udid || 'No UDID set'}</div>
-          </div>
-        </div>
-
-        <button onClick={toggleBot} disabled={!appiumRunning && !botRunning} className={`w-full py-3 rounded-md font-medium shadow-sm transition flex justify-center items-center gap-2 ${appiumRunning ? (botRunning ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-blue-600 hover:bg-blue-500 text-white') : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'}`}>
-          {botRunning ? <><Square size={18} fill="currentColor" /> Stop Bot</> : <><Play size={18} fill="currentColor" /> Start Bot</>}
-        </button>
-
-        <button onClick={() => setStep(3)} className="w-full mt-4 py-2 text-sm text-gray-400 hover:text-white transition">
-          ← Back to Setup
-        </button>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full relative">
-        <div className="h-14 border-b border-gray-700 flex items-center px-6 justify-between bg-gray-800/50">
-          <h3 className="text-sm font-medium text-gray-300">Console Output</h3>
-          <button onClick={() => setLogs([])} className="text-xs text-gray-500 hover:text-gray-300">Clear</button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 bg-black/40 font-mono text-xs leading-relaxed">
-          {logs.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-gray-600">No logs yet.</div>
-          ) : (
-            <div className="space-y-1">
-              {logs.map((log, i) => (
-                <div key={i} className={log.toLowerCase().includes('error') ? 'text-red-400' : 'text-gray-300'}>
-                  <span className="text-gray-600 mr-3">
-                    {new Date().toLocaleTimeString('en-US', { hour12: false, hour: 'numeric', minute: 'numeric', second: 'numeric' })}
-                  </span>
-                  {log}
+              <div className="notice-grid">
+                <div className="notice">
+                  <span>Still required</span>
+                  <p>Xcode, Developer Mode, device trust, and Apple code signing remain Apple-enforced.</p>
                 </div>
-              ))}
-              <div ref={logsEndRef} />
+                <div className="notice">
+                  <span>Now fixed</span>
+                  <p>Global Appium assumptions, root-writable paths, and deprecated touch entrypoints are gone.</p>
+                </div>
+              </div>
+
+              <div className="hero-actions">
+                <button className="button button-primary" onClick={() => setView('dependencies')}>
+                  Install dependencies
+                </button>
+                <button className="button button-secondary" onClick={() => setView('run')}>
+                  Go to run view
+                </button>
+              </div>
             </div>
           )}
-        </div>
-      </div>
+
+          {view === 'dependencies' && (
+            <div className="view view-dependencies">
+              <div className="section-heading">
+                <p className="eyebrow">Dependencies</p>
+                <h1>Prepare the runtime and verify the Apple side of the stack.</h1>
+              </div>
+
+              <div className="dependency-grid">
+                <section className="panel panel-large">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Install runtime</h2>
+                      <p>Creates an isolated Python/Appium runtime for this launcher instead of relying on fragile global installs.</p>
+                    </div>
+                    <button className="button button-primary" onClick={handleInstallDependencies} disabled={installing}>
+                      {installing ? 'Installing…' : 'Install dependencies'}
+                    </button>
+                  </div>
+
+                  <div className="status-grid">
+                    <StatusPill label="Python" ok={Boolean(envStatus?.python)} />
+                    <StatusPill label="Virtual env" ok={Boolean(envStatus?.venv)} />
+                    <StatusPill label="Appium" ok={Boolean(envStatus?.appium)} />
+                    <StatusPill label="XCUITest driver" ok={Boolean(envStatus?.xcuitest)} />
+                    <StatusPill label="Tesseract (legacy optional)" ok={Boolean(envStatus?.tesseract)} subtle />
+                  </div>
+                </section>
+
+                <section className="panel">
+                  <h2>Device configuration</h2>
+                  <div className="field-grid">
+                    <label className="field">
+                      <span>Device UDID</span>
+                      <input
+                        value={config.udid}
+                        onChange={(event) => void updateConfig({ udid: event.target.value })}
+                        placeholder="00008120-000C..."
+                      />
+                    </label>
+                    <label className="field">
+                      <span>App bundle ID</span>
+                      <input
+                        value={config.bundleId}
+                        onChange={(event) => void updateConfig({ bundleId: event.target.value })}
+                        placeholder="com.apple.MobileSMS"
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Apple Team ID</span>
+                      <input
+                        value={config.teamId}
+                        onChange={(event) => void updateConfig({ teamId: event.target.value })}
+                        placeholder="AB12345678"
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Xcode signing ID</span>
+                      <input
+                        value={config.xcodeSigningId}
+                        onChange={(event) => void updateConfig({ xcodeSigningId: event.target.value })}
+                        placeholder="Apple Development"
+                      />
+                    </label>
+                    <label className="field field-wide">
+                      <span>Updated WDA bundle ID</span>
+                      <input
+                        value={config.updatedWDABundleId}
+                        onChange={(event) => void updateConfig({ updatedWDABundleId: event.target.value })}
+                        placeholder="com.yourname.wordhuntbot.wda"
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                <section className="panel panel-large">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Verify WDA</h2>
+                      <p>Runs preflights, starts Appium if needed, then attempts a real WDA build against your device.</p>
+                    </div>
+                    <button className="button button-secondary" onClick={handleTestWda} disabled={testingWda || !config.udid}>
+                      {testingWda ? 'Testing…' : 'Run WDA test'}
+                    </button>
+                  </div>
+
+                  {preflightResults && (
+                    <div className="preflight-grid">
+                      <PreflightCard ok={preflightResults.xcodeAppExists} label="Xcode in /Applications" />
+                      <PreflightCard ok={preflightResults.xcodeSelectValid} label="xcode-select points to Xcode" />
+                      <PreflightCard ok={preflightResults.xcodebuildValid} label="xcodebuild works" />
+                      <PreflightCard ok={preflightResults.deviceVisible} label="Device visible to xctrace" />
+                      <PreflightCard ok={preflightResults.hasDeveloperCert} label="Signing certificate found" />
+                      <PreflightCard ok={preflightResults.xcuitestInstalled} label="XCUITest driver ready" />
+                    </div>
+                  )}
+
+                  {wdaTestResult !== 'idle' && (
+                    <div className={`callout ${wdaTestResult === 'success' ? 'callout-success' : 'callout-warning'}`}>
+                      {getWdaMessage(wdaTestResult)}
+                    </div>
+                  )}
+                </section>
+              </div>
+            </div>
+          )}
+
+          {view === 'run' && (
+            <div className="view view-run">
+              <div className="section-heading">
+                <p className="eyebrow">Run Bot</p>
+                <h1>Launch the iPhone flow and watch the runtime in motion.</h1>
+              </div>
+
+              <div className="run-grid">
+                <section className="panel">
+                  <h2>Readiness</h2>
+                  <div className="readiness-list">
+                    {readinessItems.map((item) => (
+                      <div className="readiness-row" key={item.label}>
+                        <span>{item.label}</span>
+                        <strong>{item.ready ? 'Ready' : 'Pending'}</strong>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="cta-stack">
+                    <button className="button button-primary" onClick={handleRunBot} disabled={!envStatus?.venv || !envStatus?.xcuitest}>
+                      {botRunning ? 'Stop bot' : 'Run bot'}
+                    </button>
+                    <button className="button button-secondary" onClick={appiumRunning ? handleStopAppium : async () => setAppiumRunning(await window.electronAPI.startAppium())}>
+                      {appiumRunning ? 'Stop Appium' : 'Start Appium'}
+                    </button>
+                  </div>
+                </section>
+
+                <section className="panel panel-wide">
+                  <div className="panel-header">
+                    <div>
+                      <h2>Live console</h2>
+                      <p>Everything the launcher, Appium, WDA, and Python bot say in one stream.</p>
+                    </div>
+                    <button
+                      className="button button-ghost"
+                      onClick={() => {
+                        logsRef.current = [];
+                        setLogs([]);
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  <div className="console">
+                    {logs.length === 0 ? (
+                      <div className="console-empty">No logs yet. Install dependencies or run the bot to begin.</div>
+                    ) : (
+                      logs.map((entry) => (
+                        <div key={entry.id} className={`console-line ${entry.message.toLowerCase().includes('error') ? 'console-line-error' : ''}`}>
+                          <span>{entry.timestamp}</span>
+                          <p>{entry.message}</p>
+                        </div>
+                      ))
+                    )}
+                    <div ref={logsEndRef} />
+                  </div>
+                </section>
+              </div>
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
+}
+
+function navClass(active: boolean) {
+  return active ? 'nav-link nav-link-active' : 'nav-link';
+}
+
+function StatusPill({ label, ok, subtle = false }: { label: string; ok: boolean; subtle?: boolean }) {
+  return (
+    <div className={`status-pill ${ok ? 'status-pill-ok' : subtle ? 'status-pill-subtle' : 'status-pill-off'}`}>
+      <span>{label}</span>
+      <strong>{ok ? 'Ready' : subtle ? 'Optional' : 'Missing'}</strong>
+    </div>
+  );
+}
+
+function PreflightCard({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <div className={ok ? 'preflight-card preflight-card-ok' : 'preflight-card preflight-card-off'}>
+      <span>{label}</span>
+      <strong>{ok ? 'Passed' : 'Needs attention'}</strong>
+    </div>
+  );
+}
+
+function getWdaMessage(state: WdaTestResult) {
+  switch (state) {
+    case 'success':
+      return 'WDA built and launched successfully. You can move to Run Bot.';
+    case 'devmode':
+      return 'Developer Mode appears to be disabled on the iPhone. Turn it on in Settings and restart the device.';
+    case 'untrusted':
+      return 'The iPhone still needs to trust the developer certificate. Approve it in VPN & Device Management on the device.';
+    case 'xcode':
+      return 'Xcode tooling is not fully ready yet. Open Xcode once, accept the license, and confirm xcodebuild works in Terminal.';
+    case 'signing':
+      return 'WDA failed at signing. Double-check your Team ID, signing identity, and custom WDA bundle ID.';
+    case 'port':
+      return 'Appium could not claim or keep the expected port. Stop any existing Appium process and try again.';
+    case 'unknown':
+      return 'WDA failed for a less specific reason. Review the console for the exact Appium or Xcode error.';
+    case 'testing':
+      return 'Running preflights and attempting a fresh WDA build.';
+    default:
+      return '';
+  }
 }

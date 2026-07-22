@@ -2,14 +2,19 @@ import cv2
 import easyocr
 import numpy as np
 import matplotlib.pyplot as plt
-import math
-from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.actions.action_builder import ActionBuilder
 from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.common.actions.interaction import POINTER_TOUCH
 from PIL import Image, ImageDraw
 # from swipe_helper import calculate_x, calculate_y
-import time
+
+def tap_point(driver, x, y):
+    actions = ActionBuilder(driver, mouse=PointerInput(POINTER_TOUCH, "touch"))
+    actions.pointer_action.move_to_location(int(x), int(y))
+    actions.pointer_action.pointer_down()
+    actions.pointer_action.pause(0.05)
+    actions.pointer_action.pointer_up()
+    actions.perform()
 
 def visualize_word_path(screenshot_path, cell_size, grid_top_left, max_rows, max_cols):
     # Open the screenshot

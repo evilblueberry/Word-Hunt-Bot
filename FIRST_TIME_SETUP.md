@@ -10,9 +10,9 @@ Welcome to the **Word Hunt Bot**! This launcher packages the automation scripts 
 > [!WARNING]
 > Because you are installing a custom automation app to an iOS device, Apple requires Developer mode and Code Signing. The Launcher will guide you through this process, but you MUST provide a valid Apple Developer Team ID.
 
-## The Setup Wizard
+## The Three-View Flow
 
-When you open the App for the first time, you will be greeted with a Setup Wizard. Follow these steps:
+When you open the app for the first time, move through the three built-in views:
 
 ### Step 1: Connect your Device
 - Connect your iPhone to your Mac via USB.
@@ -22,11 +22,15 @@ When you open the App for the first time, you will be greeted with a Setup Wizar
   - **How to find UDID:** Open Finder, click on your iPhone under Locations in the sidebar. At the top of the Finder window beneath your device name, click the subtext (which usually shows your battery and storage) multiple times until it displays the "UDID". Right-click and copy this 24-40 character string.
 
 ### Step 2: Dependencies, Appium & WebDriverAgent
-The app will automatically verify if you have Python, Node, and Appium installed.
-- Click **"Install Dependencies"**. The app will create a virtual environment (`venv`) inside the folder and run `pip install` as well as download the Appium XCUITest Driver via NPM.
-  - **Note:** If Appium fails to verify automatically after clicking Install, you can install it manually by opening your Mac's Terminal and typing: 
-    - `npm install -g appium`
-    - `appium driver install xcuitest`
+The app now installs an isolated runtime instead of relying on global Appium.
+- Click **"Install dependencies"**. The app will:
+  - create a dedicated Python virtual environment
+  - install the Python requirements
+  - install a local Appium runtime with the XCUITest driver
+  - keep screenshots and generated output in a writable runtime folder
+  - **Note:** If you ever need to recreate the Appium setup manually, prefer a local install:
+    - `npm install --save-exact appium appium-xcuitest-driver`
+    - `npx appium server --use-drivers=xcuitest`
 
 **Xcode & WebDriverAgent (WDA):** 
 To control your iPhone remotely, Appium automatically creates a temporary background app called "WebDriverAgent" and installs it via USB. **You DO NOT need to install WebDriverAgent yourself.** 
@@ -38,12 +42,16 @@ However, Apple enforces strict security. Apple requires this miniature invisible
 4. **Log Into Xcode:** Open the Xcode application on your Mac. In the top Menu Bar, go to `Xcode -> Settings -> Accounts`. Click the `+` button in the bottom left, select `Apple ID`, and sign in.
 5. **Compilation & Trusting:** When you click "Start Bot" for the very first time, it will take 2-4 minutes for Xcode to compile WebDriverAgent in the background. It will then push the app to your phone, but it will instantly crash your game. **This is normal.** Apple prevents apps signed via a free developer certificate from running without manual consent. Open your iPhone, go to `Settings -> General -> VPN & Device Management`, tap your Apple ID email under the "Developer App" section, and click **"Trust"**. You only ever have to do this once.
 
-### Step 3: Use the Dashboard
-Once the setup is complete, you will be taken to the Dashboard.
-1. Click **"Start Server"** next to Appium. Wait until the indicator turns <span style="color:green">green</span>.
-2. Ensure your Word Hunt game is currently visible on the iPhone screen.
-3. Click **"Start Bot"**. 
-4. The bot will automatically take a screenshot, calculate the paths, and swipe the words on your phone!
+### Step 3: Run Bot
+Once setup is complete, move to the **Run Bot** view.
+1. Ensure your Word Hunt game is currently visible on the iPhone screen.
+2. Click **"Run bot"**. The launcher will start Appium automatically if needed.
+3. Watch the live console for Appium, WDA, and Python output in one place.
+4. The bot will automatically take a screenshot, calculate the paths, and swipe the words on your phone.
+
+### OCR note
+
+Older versions of the project mentioned Tesseract as a primary OCR dependency. The current launcher path uses **EasyOCR** directly, so Tesseract is now optional legacy tooling rather than a required install.
 
 ## Troubleshooting
 
