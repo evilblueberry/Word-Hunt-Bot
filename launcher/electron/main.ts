@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const isWindows = os.platform() === 'win32';
+const XCUITEST_DRIVER_VERSION = '9.2.4';
 
 let mainWindow: BrowserWindow | null = null;
 let appiumProcess: ChildProcess | null = null;
@@ -304,11 +305,19 @@ ipcMain.handle('install-deps', async (event) => {
       { cwd: runtimePaths.runtimeRoot, env },
     );
 
-    sendLog(event, 'Installing local Appium runtime and XCUITest driver...\n');
+    sendLog(event, 'Installing local Appium runtime...\n');
     await runSpawnCommand(
       event,
       'npm',
-      ['install', '--save-exact', 'appium', 'appium-xcuitest-driver'],
+      ['install', '--save-exact', 'appium'],
+      { cwd: runtimePaths.appiumRuntimePath, env },
+    );
+
+    sendLog(event, `Registering the XCUITest driver with Appium (xcuitest@${XCUITEST_DRIVER_VERSION})...\n`);
+    await runSpawnCommand(
+      event,
+      runtimePaths.appiumExec,
+      ['driver', 'install', `xcuitest@${XCUITEST_DRIVER_VERSION}`],
       { cwd: runtimePaths.appiumRuntimePath, env },
     );
 
