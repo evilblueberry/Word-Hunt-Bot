@@ -3,5 +3,6 @@ selenium>=4.26,<5
 opencv-python>=4.10,<5
 pillow>=10.4,<12
 numpy>=1.26,<3
+pandas>=2.2,<3
 easyocr>=1.7.2,<2
 matplotlib>=3.9,<4

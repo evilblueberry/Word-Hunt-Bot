@@ -1,32 +1,32 @@
-import { app as g, BrowserWindow as T, ipcMain as d } from "electron";
-import * as s from "path";
-import { spawn as P, exec as $ } from "child_process";
-import * as c from "fs";
+import { app as w, BrowserWindow as T, ipcMain as d } from "electron";
+import * as u from "path";
+import { spawn as P, exec as k } from "child_process";
+import * as p from "fs";
 import * as R from "os";
 import { fileURLToPath as U } from "url";
-const L = U(import.meta.url), v = s.dirname(L), _ = R.platform() === "win32", C = "9.2.4";
+const L = U(import.meta.url), v = u.dirname(L), _ = R.platform() === "win32", C = "9.2.4";
 let b = null, l = null, m = null;
 function j() {
-  return g.isPackaged ? process.resourcesPath : s.join(v, "../..");
+  return w.isPackaged ? process.resourcesPath : u.join(v, "../..");
 }
 function f(t) {
-  c.mkdirSync(t, { recursive: !0 });
+  p.mkdirSync(t, { recursive: !0 });
 }
 function h() {
-  const t = s.join(g.getPath("userData"), "runtime"), e = s.join(t, "venv"), n = s.join(t, "appium"), r = s.join(t, "appium-home"), i = s.join(t, "output"), u = _ ? s.join(e, "Scripts", "python.exe") : s.join(e, "bin", "python"), o = _ ? s.join(e, "Scripts", "pip.exe") : s.join(e, "bin", "pip"), p = _ ? s.join(n, "node_modules", ".bin", "appium.cmd") : s.join(n, "node_modules", ".bin", "appium");
+  const t = u.join(w.getPath("userData"), "runtime"), e = u.join(t, "venv"), n = u.join(t, "appium"), o = u.join(t, "appium-home"), i = u.join(t, "output"), c = _ ? u.join(e, "Scripts", "python.exe") : u.join(e, "bin", "python"), a = _ ? u.join(e, "Scripts", "pip.exe") : u.join(e, "bin", "pip"), r = _ ? u.join(n, "node_modules", ".bin", "appium.cmd") : u.join(n, "node_modules", ".bin", "appium");
   return {
     runtimeRoot: t,
     venvPath: e,
     appiumRuntimePath: n,
-    appiumHomePath: r,
+    appiumHomePath: o,
     outputPath: i,
-    pythonExec: u,
-    pipExec: o,
-    appiumExec: p
+    pythonExec: c,
+    pipExec: a,
+    appiumExec: r
   };
 }
-function w(t = {}) {
-  const e = h(), n = s.join(e.appiumRuntimePath, "node_modules", ".bin");
+function g(t = {}) {
+  const e = h(), n = u.join(e.appiumRuntimePath, "node_modules", ".bin");
   return {
     ...process.env,
     PATH: [
@@ -36,8 +36,8 @@ function w(t = {}) {
       "/usr/bin",
       "/bin",
       n,
-      s.join(R.homedir(), ".npm-global", "bin")
-    ].filter(Boolean).join(s.delimiter),
+      u.join(R.homedir(), ".npm-global", "bin")
+    ].filter(Boolean).join(u.delimiter),
     APPIUM_HOME: e.appiumHomePath,
     ...t
   };
@@ -50,28 +50,28 @@ function O() {
     minHeight: 760,
     backgroundColor: "#0b0b0b",
     webPreferences: {
-      preload: s.join(v, "preload.mjs"),
+      preload: u.join(v, "preload.mjs"),
       nodeIntegration: !1,
       contextIsolation: !0
     }
-  }), process.env.VITE_DEV_SERVER_URL ? b.loadURL(process.env.VITE_DEV_SERVER_URL) : b.loadFile(s.join(v, "../dist/index.html"));
+  }), process.env.VITE_DEV_SERVER_URL ? b.loadURL(process.env.VITE_DEV_SERVER_URL) : b.loadFile(u.join(v, "../dist/index.html"));
 }
-g.whenReady().then(() => {
+w.whenReady().then(() => {
   const t = h();
   f(t.runtimeRoot), f(t.appiumRuntimePath), f(t.appiumHomePath), f(t.outputPath), O();
 });
-g.on("window-all-closed", () => {
-  process.platform !== "darwin" && g.quit();
+w.on("window-all-closed", () => {
+  process.platform !== "darwin" && w.quit();
 });
-g.on("activate", () => {
+w.on("activate", () => {
   T.getAllWindows().length === 0 && O();
 });
-g.on("before-quit", () => {
+w.on("before-quit", () => {
   l?.kill(), m?.kill();
 });
-const E = s.join(g.getPath("userData"), "wordhunt_config.json");
+const E = u.join(w.getPath("userData"), "wordhunt_config.json");
 function I() {
-  return c.existsSync(E) ? JSON.parse(c.readFileSync(E, "utf-8")) : {
+  return p.existsSync(E) ? JSON.parse(p.readFileSync(E, "utf-8")) : {
     bundleId: "com.apple.MobileSMS",
     host: "127.0.0.1",
     port: 4723,
@@ -81,12 +81,12 @@ function I() {
     updatedWDABundleId: ""
   };
 }
-function a(t, e) {
+function s(t, e) {
   t.sender.send("log", e);
 }
 function N() {
-  const t = h(), e = s.join(t.appiumRuntimePath, "package.json");
-  c.existsSync(e) || c.writeFileSync(
+  const t = h(), e = u.join(t.appiumRuntimePath, "package.json");
+  p.existsSync(e) || p.writeFileSync(
     e,
     JSON.stringify(
       {
@@ -98,45 +98,45 @@ function N() {
     )
   );
 }
-function x(t, e, n = {}) {
-  return new Promise((r) => {
-    const i = $(t, { cwd: n.cwd, env: n.env });
-    let u = "";
-    i.stdout?.on("data", (o) => {
-      const p = o.toString();
-      u += p;
-    }), i.stderr?.on("data", (o) => {
-      const p = o.toString();
-      u += p;
-    }), i.on("close", (o) => {
-      r({ success: o === 0, output: u, code: o });
+function y(t, e, n = {}) {
+  return new Promise((o) => {
+    const i = k(t, { cwd: n.cwd, env: n.env });
+    let c = "";
+    i.stdout?.on("data", (a) => {
+      const r = a.toString();
+      c += r, e && s(e, r);
+    }), i.stderr?.on("data", (a) => {
+      const r = a.toString();
+      c += r, e && s(e, r);
+    }), i.on("close", (a) => {
+      o({ success: a === 0, output: c, code: a });
     });
   });
 }
-function y(t, e, n, r = {}) {
-  return new Promise((i, u) => {
-    const o = P(e, n, {
-      ...r,
-      env: r.env ?? w(),
+function x(t, e, n, o = {}) {
+  return new Promise((i, c) => {
+    const a = P(e, n, {
+      ...o,
+      env: o.env ?? g(),
       shell: !1
     });
-    o.stdout?.on("data", (p) => a(t, p.toString())), o.stderr?.on("data", (p) => a(t, p.toString())), o.on("error", u), o.on("close", (p) => {
-      if (p === 0) {
+    a.stdout?.on("data", (r) => s(t, r.toString())), a.stderr?.on("data", (r) => s(t, r.toString())), a.on("error", c), a.on("close", (r) => {
+      if (r === 0) {
         i();
         return;
       }
-      u(new Error(`${e} exited with code ${p}`));
+      c(new Error(`${e} exited with code ${r}`));
     });
   });
 }
 function V() {
-  return s.join(j(), "Scripts", "main.py");
+  return u.join(j(), "Scripts", "main.py");
 }
 function J() {
-  return s.join(j(), "requirements.txt");
+  return u.join(j(), "requirements.txt");
 }
 d.handle("get-config", async () => I());
-d.handle("save-config", async (t, e) => (c.writeFileSync(E, JSON.stringify(e, null, 2)), !0));
+d.handle("save-config", async (t, e) => (p.writeFileSync(E, JSON.stringify(e, null, 2)), !0));
 d.handle("get-os-username", () => {
   try {
     return R.userInfo().username;
@@ -148,61 +148,68 @@ d.handle("check-env", async () => {
   const t = h(), e = {
     python: !1,
     node: !0,
-    venv: c.existsSync(t.pythonExec),
-    appium: c.existsSync(t.appiumExec),
+    venv: p.existsSync(t.pythonExec),
+    appium: p.existsSync(t.appiumExec),
     xcuitest: !1,
     tesseract: !1
-  }, n = w(), r = await x("python3 --version", void 0, { env: n });
-  if (e.python = r.success, e.appium) {
-    const u = await x(`"${t.appiumExec}" driver list --installed`, void 0, {
+  }, n = g(), o = await y("python3 --version", void 0, { env: n });
+  if (e.python = o.success, e.appium) {
+    const c = await y(`"${t.appiumExec}" driver list --installed`, void 0, {
       cwd: t.appiumRuntimePath,
       env: n
     });
-    e.xcuitest = u.output.toLowerCase().includes("xcuitest");
+    e.xcuitest = c.output.toLowerCase().includes("xcuitest");
   }
-  const i = await x("tesseract --version", void 0, { env: n });
+  const i = await y("tesseract --version", void 0, { env: n });
   return e.tesseract = i.success, e;
 });
 d.handle("install-deps", async (t) => {
-  const e = h(), n = w();
+  const e = h(), n = g();
   try {
-    return f(e.runtimeRoot), f(e.appiumRuntimePath), f(e.appiumHomePath), f(e.outputPath), N(), a(t, `Preparing isolated runtime...
-`), c.existsSync(e.pythonExec) ? a(t, `Python virtual environment already exists.
-`) : (a(t, `Creating Python virtual environment...
-`), await y(t, "python3", ["-m", "venv", e.venvPath], {
+    f(e.runtimeRoot), f(e.appiumRuntimePath), f(e.appiumHomePath), f(e.outputPath), N(), s(t, `Preparing isolated runtime...
+`), p.existsSync(e.pythonExec) ? s(t, `Python virtual environment already exists.
+`) : (s(t, `Creating Python virtual environment...
+`), await x(t, "python3", ["-m", "venv", e.venvPath], {
       cwd: e.runtimeRoot,
       env: n
-    })), a(t, `Upgrading pip tooling...
-`), await y(
+    })), s(t, `Upgrading pip tooling...
+`), await x(
       t,
       e.pythonExec,
       ["-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
       { cwd: e.runtimeRoot, env: n }
-    ), a(t, `Installing Python dependencies...
-`), await y(
+    ), s(t, `Installing Python dependencies...
+`), await x(
       t,
       e.pythonExec,
       ["-m", "pip", "install", "-r", J()],
       { cwd: e.runtimeRoot, env: n }
-    ), a(t, `Installing local Appium runtime...
-`), await y(
+    ), s(t, `Installing local Appium runtime...
+`), await x(
       t,
       "npm",
       ["install", "--save-exact", "appium"],
       { cwd: e.appiumRuntimePath, env: n }
-    ), a(t, `Registering the XCUITest driver with Appium (xcuitest@${C})...
-`), await y(
+    ), s(t, `Registering the XCUITest driver with Appium (xcuitest@${C})...
+`);
+    const o = await y(
+      `"${e.appiumExec}" driver install "xcuitest@${C}"`,
       t,
-      e.appiumExec,
-      ["driver", "install", `xcuitest@${C}`],
       { cwd: e.appiumRuntimePath, env: n }
-    ), a(
+    );
+    if (!o.success)
+      if (o.output.includes("already installed"))
+        s(t, `XCUITest driver is already installed. Continuing.
+`);
+      else
+        throw new Error(`Appium driver install failed with code ${o.code}`);
+    return s(
       t,
       `Dependency install complete. Tesseract remains optional because the bot now uses EasyOCR directly.
 `
     ), !0;
-  } catch (r) {
-    return a(t, `Dependency install failed: ${String(r)}
+  } catch (o) {
+    return s(t, `Dependency install failed: ${String(o)}
 `), !1;
   }
 });
@@ -210,54 +217,54 @@ d.handle("start-appium", async (t) => {
   if (l)
     return !0;
   const e = h();
-  return c.existsSync(e.appiumExec) ? new Promise((n) => {
-    a(t, `Starting Appium...
+  return p.existsSync(e.appiumExec) ? new Promise((n) => {
+    s(t, `Starting Appium...
 `);
-    let r = !1;
+    let o = !1;
     l = P(
       e.appiumExec,
       ["server", "--use-drivers=xcuitest", "--base-path", "/"],
       {
         cwd: e.appiumRuntimePath,
-        env: w(),
+        env: g(),
         shell: !1
       }
     );
-    const i = (u) => {
-      r || (r = !0, n(u));
+    const i = (c) => {
+      o || (o = !0, n(c));
     };
-    l.stdout?.on("data", (u) => {
-      const o = u.toString();
-      a(t, o), (o.includes("Appium REST http interface listener started") || o.includes("listener started on")) && i(!0);
-    }), l.stderr?.on("data", (u) => {
-      a(t, u.toString());
-    }), l.on("error", (u) => {
-      a(t, `Failed to start Appium: ${String(u)}
+    l.stdout?.on("data", (c) => {
+      const a = c.toString();
+      s(t, a), (a.includes("Appium REST http interface listener started") || a.includes("listener started on")) && i(!0);
+    }), l.stderr?.on("data", (c) => {
+      s(t, c.toString());
+    }), l.on("error", (c) => {
+      s(t, `Failed to start Appium: ${String(c)}
 `), l = null, i(!1);
     }), l.on("close", () => {
       l = null, i(!1);
     });
-  }) : (a(t, `Appium runtime is missing. Install dependencies first.
+  }) : (s(t, `Appium runtime is missing. Install dependencies first.
 `), !1);
 });
 d.handle("stop-appium", async () => (l?.kill(), l = null, !0));
 d.handle("run-preflights", async (t, e) => {
-  const n = h(), r = w(), i = (A) => x(A, void 0, { env: r, cwd: n.appiumRuntimePath }), u = c.existsSync("/Applications/Xcode.app"), o = await i("xcode-select -p"), p = await i("xcodebuild -version");
+  const n = h(), o = g(), i = (A) => y(A, void 0, { env: o, cwd: n.appiumRuntimePath }), c = p.existsSync("/Applications/Xcode.app"), a = await i("xcode-select -p"), r = await i("xcodebuild -version");
   let S = !1;
   e ? S = (await i("xcrun xctrace list devices")).output.toLowerCase().includes(e.toLowerCase()) : S = !0;
-  const B = c.existsSync(n.appiumExec) ? await i(`"${n.appiumExec}" driver list --installed`) : { output: "" }, D = await i("security find-identity -v -p codesigning"), W = D.output.toLowerCase().includes("apple development") || D.output.toLowerCase().includes("iphone developer"), k = await i("tesseract --version");
+  const $ = p.existsSync(n.appiumExec) ? await i(`"${n.appiumExec}" driver list --installed`) : { output: "" }, D = await i("security find-identity -v -p codesigning"), B = D.output.toLowerCase().includes("apple development") || D.output.toLowerCase().includes("iphone developer"), W = await i("tesseract --version");
   return {
-    xcodeAppExists: u,
-    xcodeSelectValid: o.success && o.output.includes("Xcode.app"),
-    xcodebuildValid: p.success,
+    xcodeAppExists: c,
+    xcodeSelectValid: a.success && a.output.includes("Xcode.app"),
+    xcodebuildValid: r.success,
     deviceVisible: S,
-    xcuitestInstalled: B.output.toLowerCase().includes("xcuitest"),
-    hasDeveloperCert: W,
-    tesseractInstalled: k.success
+    xcuitestInstalled: $.output.toLowerCase().includes("xcuitest"),
+    hasDeveloperCert: B,
+    tesseractInstalled: W.success
   };
 });
 d.handle("test-wda", async (t) => {
-  const e = h(), n = I(), r = s.join(e.runtimeRoot, "test_wda_runtime.py"), i = `
+  const e = h(), n = I(), o = u.join(e.runtimeRoot, "test_wda_runtime.py"), i = `
 import sys
 from appium import webdriver
 from appium.options.ios import XCUITestOptions
@@ -291,15 +298,15 @@ except Exception as error:
     print(f"WDA Error: {error}")
     sys.exit(1)
 `;
-  return c.writeFileSync(r, i), new Promise((u) => {
-    const o = P(e.pythonExec, [r], {
+  return p.writeFileSync(o, i), new Promise((c) => {
+    const a = P(e.pythonExec, [o], {
       cwd: e.runtimeRoot,
-      env: w(),
+      env: g(),
       shell: !1
     });
-    o.stdout?.on("data", (p) => a(t, p.toString())), o.stderr?.on("data", (p) => a(t, p.toString())), o.on("close", (p) => {
-      c.existsSync(r) && c.unlinkSync(r), a(t, `WDA test exited with code ${p}
-`), u(p === 0);
+    a.stdout?.on("data", (r) => s(t, r.toString())), a.stderr?.on("data", (r) => s(t, r.toString())), a.on("close", (r) => {
+      p.existsSync(o) && p.unlinkSync(o), s(t, `WDA test exited with code ${r}
+`), c(r === 0);
     });
   });
 });
@@ -307,11 +314,11 @@ d.handle("start-bot", async (t) => {
   if (m)
     return !1;
   const e = h(), n = I();
-  return new Promise((r) => {
-    a(t, `Starting bot...
+  return new Promise((o) => {
+    s(t, `Starting bot...
 `), m = P(e.pythonExec, [V()], {
       cwd: e.outputPath,
-      env: w({
+      env: g({
         BOT_UDID: n.udid || "",
         BOT_TEAM_ID: n.teamId || "",
         BOT_BUNDLE_ID: n.bundleId || "com.apple.MobileSMS",
@@ -321,9 +328,9 @@ d.handle("start-bot", async (t) => {
         BOT_WORKDIR: e.outputPath
       }),
       shell: !1
-    }), m.stdout?.on("data", (i) => a(t, i.toString())), m.stderr?.on("data", (i) => a(t, i.toString())), m.on("close", (i) => {
-      a(t, `Bot exited with code ${i}
-`), m = null, r(i === 0);
+    }), m.stdout?.on("data", (i) => s(t, i.toString())), m.stderr?.on("data", (i) => s(t, i.toString())), m.on("close", (i) => {
+      s(t, `Bot exited with code ${i}
+`), m = null, o(i === 0);
     });
   });
 });

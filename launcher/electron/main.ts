@@ -314,12 +314,19 @@ ipcMain.handle('install-deps', async (event) => {
     );
 
     sendLog(event, `Registering the XCUITest driver with Appium (xcuitest@${XCUITEST_DRIVER_VERSION})...\n`);
-    await runSpawnCommand(
+    const driverInstall = await runExecCommand(
+      `"${runtimePaths.appiumExec}" driver install "xcuitest@${XCUITEST_DRIVER_VERSION}"`,
       event,
-      runtimePaths.appiumExec,
-      ['driver', 'install', `xcuitest@${XCUITEST_DRIVER_VERSION}`],
       { cwd: runtimePaths.appiumRuntimePath, env },
     );
+
+    if (!driverInstall.success) {
+      if (driverInstall.output.includes('already installed')) {
+        sendLog(event, 'XCUITest driver is already installed. Continuing.\n');
+      } else {
+        throw new Error(`Appium driver install failed with code ${driverInstall.code}`);
+      }
+    }
 
     sendLog(
       event,
