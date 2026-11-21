@@ -1,0 +1,51 @@
+{
+  "default": "fast",
+  "round_seconds": 75,
+  "session_idle_timeout_s": 180,
+  "presets": {
+    "safe": {
+      "description": "Original Selenium timings",
+      "duration_mode": "per_tile",
+      "swipe_ms": 250,
+      "reposition_ms": 250,
+      "press_ms": 0,
+      "release_ms": 0,
+      "gap_ms": 0,
+      "batch_size": 1,
+      "intermediate_points": 0,
+      "solver": "legacy",
+      "debug_images": true,
+      "settings": {}
+    },
+    "fast": {
+      "description": "Latest measured all-words mode: 123/126 accepted in 27.99 seconds",
+      "launcher_enabled": true,
+      "duration_mode": "whole_path",
+      "swipe_ms": 155,
+      "reposition_ms": 0,
+      "press_ms": 10,
+      "release_ms": 10,
+      "gap_ms": 60,
+      "batch_size": "all",
+      "intermediate_points": 0,
+      "solver": "legacy",
+      "debug_images": false,
+      "settings": {"waitForIdleTimeout": 0, "animationCoolOffTimeout": 0},
+      "transport": "wda-screen"
+    },
+    "max": {
+      "description": "Experimental batching; Safe timings until live validation",
+      "duration_mode": "whole_path",
+      "swipe_ms": 80,
+      "reposition_ms": 0,
+      "press_ms": 10,
+      "release_ms": 10,
+      "gap_ms": 0,
+      "batch_size": 4,
+      "intermediate_points": 1,
+      "solver": "trie",
+      "debug_images": false,
+      "settings": {"waitForIdleTimeout": 0, "animationCoolOffTimeout": 0}
+    }
+  }
+}
