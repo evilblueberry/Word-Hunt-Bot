@@ -20,7 +20,7 @@ This project automates playing the **Word Hunt** game in iMessage using Python, 
 - **Selenium (ActionBuilder)** for touch gestures
 - **OpenCV** for image recognition
 - **Pillow (PIL)** for image processing
-- **Tesseract OCR** (legacy optional; the current launcher path uses EasyOCR directly)
+- **Tesseract OCR** (optional, for extracting letters from screenshots)
 
 ---
 
@@ -139,6 +139,20 @@ npm run dev
 The updated window title is **Word Hunt Bot — All Words**. An installed `.app` or
 DMG does not update from repository edits; use the development command above or
 rebuild a distribution with `npm run dist`.
+1. **Install dependencies**
+   ```bash
+   pip install opencv-python pillow selenium appium-python-client
+2. Start appium
+   ```bash
+   appium
+3. Connect your iPhone
+- Enable developer mode.
+- Connect via USB or Wi-Fi.
+- Ensure WebDriverAgent is installed and running.
+4. Run the bot
+  ```bash
+   python main.py
+  ```
 
 
 How It Works
@@ -156,5 +170,8 @@ How It Works
 4. Overlay Handling
 - Detects UI overlays (such as the "Start" button) by template matching.
 - Taps at the correct scaled coordinates to dismiss them before gameplay.
+
+
+
 
 
