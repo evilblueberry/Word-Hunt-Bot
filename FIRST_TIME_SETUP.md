@@ -29,7 +29,8 @@ The app now installs an isolated runtime instead of relying on global Appium.
   - install a local Appium runtime with the XCUITest driver
   - keep screenshots and generated output in a writable runtime folder
   - **Note:** If you ever need to recreate the Appium setup manually, prefer a local install:
-    - `npm install --save-exact appium appium-xcuitest-driver`
+    - `npm install --save-exact appium@4.0.0`
+    - `npx appium driver install xcuitest@13.5.0`
     - `npx appium server --use-drivers=xcuitest`
 
 **Xcode & WebDriverAgent (WDA):** 

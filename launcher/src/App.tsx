@@ -17,6 +17,7 @@ type Config = {
   udid: string;
   xcodeSigningId: string;
   updatedWDABundleId: string;
+  speedPreset: 'safe' | 'fast' | 'max';
 };
 
 type EnvironmentStatus = {
@@ -36,6 +37,13 @@ type PreflightResults = {
   xcuitestInstalled: boolean;
   hasDeveloperCert: boolean;
   tesseractInstalled: boolean;
+  configValid: string[];
+  diagnostics: string[];
+  deviceOutput: string;
+  identityOutput: string;
+  detectedTeamIds: string[];
+  teamMatchesCertificate: boolean;
+  certificateOutput: string;
 };
 
 type WdaTestResult =
@@ -74,10 +82,11 @@ const defaultConfig: Config = {
   bundleId: 'com.apple.MobileSMS',
   host: '127.0.0.1',
   port: 4723,
-  teamId: '',
+  teamId: '287MYRCJ37',
   udid: '',
   xcodeSigningId: 'Apple Development',
   updatedWDABundleId: '',
+  speedPreset: 'fast',
 };
 
 export default function App() {
@@ -135,6 +144,7 @@ export default function App() {
 
     const load = async () => {
       const savedConfig = await window.electronAPI.getConfig();
+      savedConfig.speedPreset ??= 'fast';
       if (!savedConfig.updatedWDABundleId) {
         const username = await window.electronAPI.getOsUsername();
         savedConfig.updatedWDABundleId = `com.${username.toLowerCase().replace(/[^a-z0-9]/g, '')}.wordhuntbot.wda`;
@@ -190,7 +200,9 @@ export default function App() {
       !preflights.xcodeSelectValid ||
       !preflights.xcodebuildValid ||
       !preflights.deviceVisible ||
-      !preflights.xcuitestInstalled
+      !preflights.xcuitestInstalled ||
+      preflights.configValid.length > 0 ||
+      !preflights.teamMatchesCertificate
     ) {
       setWdaTestResult('idle');
       setTestingWda(false);
@@ -215,7 +227,7 @@ export default function App() {
       return;
     }
 
-    const fullLog = logsRef.current.map((entry) => entry.message).join(' ').toLowerCase();
+    const fullLog = `${preflights.diagnostics.join(' ')} ${logsRef.current.map((entry) => entry.message).join(' ')}`.toLowerCase();
     if (fullLog.includes('developer mode')) setWdaTestResult('devmode');
     else if (fullLog.includes('untrusted') || fullLog.includes('trust') || fullLog.includes('permission denied')) setWdaTestResult('untrusted');
     else if (fullLog.includes('xcode') || fullLog.includes('xcodebuild') || fullLog.includes('license')) setWdaTestResult('xcode');
@@ -424,17 +436,54 @@ export default function App() {
                       <PreflightCard ok={preflightResults.xcodeAppExists} label="Xcode in /Applications" />
                       <PreflightCard ok={preflightResults.xcodeSelectValid} label="xcode-select points to Xcode" />
                       <PreflightCard ok={preflightResults.xcodebuildValid} label="xcodebuild works" />
-                      <PreflightCard ok={preflightResults.deviceVisible} label="Device visible to xctrace" />
+                      <PreflightCard ok={preflightResults.deviceVisible} label="iPhone connection ready" />
                       <PreflightCard ok={preflightResults.hasDeveloperCert} label="Signing certificate found" />
                       <PreflightCard ok={preflightResults.xcuitestInstalled} label="XCUITest driver ready" />
                     </div>
                   )}
+
+                  {preflightResults?.diagnostics.length ? (
+                    <div className="callout callout-warning">
+                      <strong>Actionable diagnostics</strong>
+                      <pre>{preflightResults.diagnostics.join('\n')}</pre>
+                    </div>
+                  ) : null}
+
+                  {preflightResults?.detectedTeamIds.length ? (
+                    <div className="callout callout-success">
+                      <strong>Detected certificate Team ID(s):</strong>{' '}
+                      {preflightResults.detectedTeamIds.join(', ')}
+                      {!preflightResults.teamMatchesCertificate ? (
+                        <button
+                          className="button button-ghost"
+                          onClick={() => void updateConfig({ teamId: preflightResults.detectedTeamIds[0] })}
+                        >
+                          Use detected Team ID
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   {wdaTestResult !== 'idle' && (
                     <div className={`callout ${wdaTestResult === 'success' ? 'callout-success' : 'callout-warning'}`}>
                       {getWdaMessage(wdaTestResult)}
                     </div>
                   )}
+
+                  {testingWda || logs.length > 0 ? (
+                    <div className="console wda-console" aria-label="WDA live output">
+                      {logs.length === 0 ? (
+                        <div className="console-empty">Waiting for WDA/Appium output…</div>
+                      ) : (
+                        logs.map((entry) => (
+                          <div key={`wda-${entry.id}`} className={`console-line ${entry.message.toLowerCase().includes('error') ? 'console-line-error' : ''}`}>
+                            <span>{entry.timestamp}</span>
+                            <p>{entry.message}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  ) : null}
                 </section>
               </div>
             </div>
@@ -458,6 +507,21 @@ export default function App() {
                       </div>
                     ))}
                   </div>
+
+                  <label className="field speed-field">
+                    <span>Speed</span>
+                    <select
+                      value={config.speedPreset}
+                      disabled={botRunning}
+                      aria-describedby="speed-help"
+                      onChange={(event) => void updateConfig({ speedPreset: event.target.value as Config['speedPreset'] })}
+                    >
+                      <option value="safe">Safe — original timings</option>
+                      <option value="fast">Fast — all words, 155 / 60 ms</option>
+                      <option value="max" disabled>Max — not calibrated</option>
+                    </select>
+                    <small id="speed-help">Fast sends all words that fit in one request: 155 ms paths with 60 ms between words. Safe restores the original timings.</small>
+                  </label>
 
                   <div className="cta-stack">
                     <button className="button button-primary" onClick={handleRunBot} disabled={!envStatus?.venv || !envStatus?.xcuitest}>
@@ -540,7 +604,7 @@ function getWdaMessage(state: WdaTestResult) {
     case 'untrusted':
       return 'The iPhone still needs to trust the developer certificate. Approve it in VPN & Device Management on the device.';
     case 'xcode':
-      return 'Xcode tooling is not fully ready yet. Open Xcode once, accept the license, and confirm xcodebuild works in Terminal.';
+      return 'WDA failed during Xcode/device setup. Read the actionable diagnostics and live stderr below for the exact cause.';
     case 'signing':
       return 'WDA failed at signing. Double-check your Team ID, signing identity, and custom WDA bundle ID.';
     case 'port':

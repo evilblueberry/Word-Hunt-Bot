@@ -1,7 +1,7 @@
 {
   "name": "launcher",
   "private": true,
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "author": "evilblueberry",
   "repository": "https://github.com/evilblueberry/Word-Hunt-Bot",
   "main": "dist-electron/main.js",
@@ -67,6 +67,10 @@
       "dist-electron"
     ],
     "extraResources": [
+      {
+        "from": "../speed_config.json",
+        "to": "speed_config.json"
+      },
       {
         "from": "../Scripts",
         "to": "Scripts",

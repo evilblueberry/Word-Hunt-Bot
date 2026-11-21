@@ -8,6 +8,7 @@ type LauncherConfig = {
     udid: string;
     xcodeSigningId: string;
     updatedWDABundleId: string;
+    speedPreset: 'safe' | 'fast' | 'max';
 };
 
 contextBridge.exposeInMainWorld('electronAPI', {

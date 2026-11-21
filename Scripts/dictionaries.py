@@ -1,7 +1,12 @@
+from pathlib import Path
+
 import pandas as pd
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+WORD_LIST_PATH = BASE_DIR / "scrabble_words.txt"
+
 # open and read the word list file
-with open('scrabble_words.txt', 'r') as file:
+with WORD_LIST_PATH.open('r') as file:
     words = [word.lower() for word in file.read().splitlines()]
 
 # create a DataFrame with each word and corresponding value 
@@ -31,5 +36,4 @@ def temp_dictionary(letters_flattened):
     temp_dic = word_dictionary[word_dictionary['Name'].apply(lambda x: can_form_word(x, letters_flattened))]
 
     return temp_dic
-
 

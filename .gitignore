@@ -6,3 +6,7 @@ launcher/out/
 *.dmg
 *.exe
 *.app
+.DS_Store
+__pycache__/
+*.py[cod]
+tests/output/

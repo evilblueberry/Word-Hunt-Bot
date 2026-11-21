@@ -303,7 +303,8 @@
   font-size: 0.85rem;
 }
 
-.field input {
+.field input,
+.field select {
   min-height: 48px;
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -316,9 +317,27 @@
   color: rgba(255, 255, 255, 0.32);
 }
 
-.field input:focus-visible {
+.field input:focus-visible,
+.field select:focus-visible {
   outline: none;
   border-color: rgba(255, 255, 255, 0.34);
+}
+
+.speed-field {
+  margin-top: 1.5rem;
+}
+
+.speed-field select {
+  background: #171717;
+}
+
+.speed-field small {
+  color: #b9b9b9;
+  line-height: 1.5;
+}
+
+.speed-field select:disabled {
+  opacity: 0.6;
 }
 
 .preflight-grid {
